@@ -1,0 +1,221 @@
+<h1>{{title}}</h1>
+<p>Welcome to {{title}}</p>
+
+<p>Image to use:</p>
+<p>Canvas to fill:</p>
+<canvas id="myCanvas" width="640" height="480"
+        style="border:1px solid #d3d3d3;">
+    Your browser does not support the HTML5 canvas tag.
+</canvas>
+
+<canvas id="myCanvas2" width="640" height="480"
+        style="border:1px solid #d3d3d3;">
+
+</canvas>
+
+<p><button onclick="myCanvas()">Try it</button></p>
+<p><button onclick="myCanvas2()">Canvas 2</button></p>
+
+<h1>Webcam Screencapture Demo</h1>
+<script>
+    function myCanvas() {
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+        var img = document.getElementById("webcamFeed");
+        ctx.drawImage(img,0,0);
+    }
+
+    function myCanvas2() {
+        var c = document.getElementById("myCanvas2");
+        var ctx = c.getContext("2d");
+        var img = document.getElementById("webcamFeed");
+        ctx.drawImage(img,0,0);
+    }
+</script>
+<video id="webcamFeed" width="320" height="240" autoplay muted></video>
+
+<h1>Greenscreen replacement demo</h1>
+
+<p><button onclick="chromaKey('myCanvas')">Chroma Key Background</button></p>
+<p><button onclick="chromaKey('myCanvas2', 'myCanvas')">Chroma Key Background of image 2</button></p>
+
+<script type="text/javascript">
+    function replaceImage(canvasToChroma, background)
+    {
+        //Grab color value of top left pixel to use as chroma key. Kinda janky.
+        var canvas = document.getElementById(canvasToChroma);
+        var context = canvas.getContext("2d");
+        var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        var data = imageData.data;
+        var start = {
+            red: data[0],
+            green: data[1],
+            blue: data[2]
+        };
+
+        document.getElementById(canvasToChroma).getContext("2d").putImageData(imageData,0,0);
+
+        if(background)
+        {
+            //if user or server has specified a background
+            context.putImageData(background,0,0);
+            var imgDataNormal = context.getImageData(0,0,canvas.width,canvas.height);
+        }
+        else
+        {
+            //default case
+            alert("Undefined background layer");
+            var bgImage = new Image();
+            bgImage.src = "images/fire.jpg";
+            context.drawImage(bgImage,0,0);
+            //fire background
+            var imgDataNormal = context.getImageData(0,0,canvas.width, canvas.height);
+        }
+
+        //iterate over all pixels to replace chroma key value
+        var tolerance = 135; //I only have a vague idea what this does.
+        for(var i = 0, n = data.length; i < n; i += 4) {
+            //calculate the difference of current pixel's color value from chroma key value
+            var diff = Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1])
+                    + Math.abs(data[i + 2] - data[2]);
+            if (diff < tolerance) {
+                //If pixel is within tolerance level, reduce it's alpha channel to 0
+                imageData.data[i+3] = 0;
+            }
+        }
+
+        data = imageData.data;
+        for(var i = 0, n = data.length; i < n; i += 4) {
+            var r = imgDataNormal.data[i];
+            var g = imgDataNormal.data[i+1];
+            var b = imgDataNormal.data[i+2];
+            var a = imgDataNormal.data[i+3];
+
+            if (imageData.data[i+3] == 0) {
+                //replace all chroma keyed pixels with background image
+                imageData.data[i] = r;
+                imageData.data[i+1] = g;
+                imageData.data[i+2] = b;
+                imageData.data[i+3] = a;
+            }
+        }
+
+        return imageData;
+    }
+
+    //canvas = target canvas
+    //background - canvas object to be used as background
+    function chromaKey(canvas, background)
+    {
+        if(background)
+        {
+            var context = document.getElementById(canvas).getContext('2d');
+            var backgroundCanvas = document.getElementById(background).getContext('2d');
+            background = backgroundCanvas.getImageData(0,0, 640, 480);
+
+            context.putImageData(replaceImage(canvas, background), 0, 0);
+        }
+        else
+        {
+            var context = document.getElementById(canvas).getContext('2d');
+
+            context.putImageData(replaceImage(canvas), 0, 0);
+        }
+
+    }
+
+    //returns an imageData for the background Image
+    function makeBGImage(image)
+    {
+        var invisibleCanvas = document.createElement('canvas');
+        invisibleCanvas.setAttribute("width", "640");
+        invisibleCanvas.setAttribute("height", "480");
+
+        var context = invisibleCanvas.getContext('2d');
+        context.drawImage(image,0,0);
+        return context.getImageData(0,0, invisibleCanvas.width, invisibleCanvas.height);
+    }
+
+    /*
+    var loadScreenButton = document.getElementById("loadScreen");
+    loadScreenButton.addEventListener("click", loadScreen());
+    var replaceImageButton = document.getElementById("replaceImage");
+    replaceImageButton.addEventListener("click", replaceImage());
+    */
+
+    function addBackground()
+    {
+        var canvas = document.getElementById("bgCanvas");
+        var modifiedCanvas = document.getElementById("modifyCanvas");
+        var context2 = modifiedCanvas.getContext('2d');
+        var context = canvas.getContext('2d');
+        var imageData = context2.getImageData(0,0,canvas.width, canvas.height);
+
+        var bgImage = new Image();
+        bgImage.src = "images/fire.jpg";
+        context.drawImage(bgImage,0,0);
+        var imgDataNormal = context.createImageData(canvas.width, canvas.height);
+
+        for(var i = 0, n = imageData.data.length; i < n; i+=4)
+        {
+            if(imageData.data[i+3] === 0)
+            {
+                imageData.data[i] = imgDataNormal.data[i];
+                imageData.data[i+1] = imgDataNormal.data[i+1];
+                imageData.data[i+2] = imgDataNormal.data[i+2];
+                imageData.data[i+3] = imgDataNormal.data[i+3];
+            }
+        }
+
+        context2.putImageData(imageData,0,10);
+        context.putImageData(imageData, 0 , 10);
+    }
+
+    function videoPreview()
+    {
+        var canvas = document.getElementById('myCanvas2');
+
+        var videoFeed = document.getELementById('webcamFeed');
+
+        var bgImg = new Image();
+        bgImg.src = "images/ree.jpg";
+
+        var backgroundObject = bgImg;
+
+        var context = canvas.getContext('2d');
+        context.drawImage(backgroundObject,0,0,canvas.width,canvas.height);
+        imgDataNormal = context.getImageData(0,0,canvas.width, canvas.height);
+        var imgData = context.createImageData(canvas.width, canvas.height);
+
+        for (var i = 0; i < imgData.width * imgData.height * 4; i += 4)
+        {
+            var r = imgDataNormal.data[i];
+            var g = imgDataNormal.data[i+1];
+            var b = imgDataNormal.data[i+2];
+            var a = imgDataNormal.data[i+3];
+
+            var selectedR = 25;
+            var selectedG = 90;
+            var selectedB = 60;
+
+            if(r <= selectedR && b <= selectedB && g >= selectedG)
+            {
+                a = 0;
+            }
+            if(a != 0)
+            {
+                imgData.data[i] = r;
+                imgData.data[i+1] = g;
+                imgData.data[i+2] = b;
+                imgData.data[i+3] = a;
+            }
+        }
+
+    }
+
+</script>
+
+<script src="/javascripts/webcam.js">
+    hasGetUserMedia();
+    webcamStuff();
+</script>
